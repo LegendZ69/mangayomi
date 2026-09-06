@@ -2,12 +2,14 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:mangayomi/eval/model/m_bridge.dart';
 import 'package:mangayomi/models/manga.dart';
 import 'package:mangayomi/utils/manga_cover_actions.dart';
 import 'package:mangayomi/modules/manga/reader/u_chap_data_preload.dart';
 import 'package:mangayomi/providers/l10n_providers.dart';
 import 'package:mangayomi/providers/storage_provider.dart';
+import 'package:mangayomi/services/translation/translation_controller.dart';
 import 'package:mangayomi/utils/downloaded_page_file.dart';
 import 'package:mangayomi/utils/extensions/build_context_extensions.dart';
 import 'package:mangayomi/utils/extensions/others.dart';
@@ -114,6 +116,12 @@ class _ImageActionsSheet extends StatelessWidget {
                   ),
                 ],
               ),
+              ListTile(
+                leading: const Icon(Icons.translate_rounded),
+                title: const Text('Queue page for translation'),
+                subtitle: const Text('Review settings and start from the queue'),
+                onTap: () => _queueTranslation(context),
+              ),
             ],
           ),
         ),
@@ -126,6 +134,34 @@ class _ImageActionsSheet extends StatelessWidget {
     if (!confirmed || !context.mounted) return;
     await applyMangaCover(context, manga, imageBytes);
     if (context.mounted) Navigator.pop(context);
+  }
+
+  Future<void> _queueTranslation(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final router = GoRouter.of(context);
+    try {
+      final controller = TranslationController.instance;
+      await controller.initialize();
+      final job = await controller.enqueue(
+        imageBytes: imageBytes,
+        title: fileName,
+        mimeType: mimeTypeForImageExtension(detectImageExtension(imageBytes)),
+      );
+      if (!context.mounted) return;
+      if (job == null) {
+        messenger.showSnackBar(
+          SnackBar(content: Text(controller.error ?? 'Could not queue this page.')),
+        );
+        return;
+      }
+      Navigator.pop(context);
+      router.push('/translation');
+    } catch (_) {
+      if (!context.mounted) return;
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Could not save this page to the translation queue.')),
+      );
+    }
   }
 
   Future<void> _shareImage(BuildContext context) async {
