@@ -175,8 +175,9 @@ class _TranslationScreenState extends State<TranslationScreen> {
           ),
         );
         if (copy != true) return;
-        if (job.status == TranslationJobStatus.queued)
+        if (job.status == TranslationJobStatus.queued) {
           await _controller.cancel(job.id);
+        }
         final added = await _controller.requeueWithCurrentSettings(job.id);
         _message(
           added == null

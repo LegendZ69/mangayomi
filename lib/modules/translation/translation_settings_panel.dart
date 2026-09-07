@@ -906,8 +906,9 @@ class _TranslationSettingsPanelState extends State<TranslationSettingsPanel>
                   builder: (_) =>
                       _ModelCatalogDialog(title: label, models: models),
                 );
-                if (selected != null && mounted)
+                if (selected != null && mounted) {
                   _fields[field]!.text = selected;
+                }
               },
               icon: const Icon(Icons.search),
               label: Text('Browse ${models.length} published models'),
