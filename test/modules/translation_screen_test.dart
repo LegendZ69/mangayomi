@@ -113,7 +113,10 @@ void main() {
     expect(find.textContaining('Local only applies to PP-OCR / YOLO26 / LaMa.'), findsOneWidget);
     final picker = find.byType(DropdownButtonFormField<ExecutionMode>);
     await tester.ensureVisible(picker);
-    await tester.tap(picker);
+    // ensureVisible changes the scroll offset; paint it before hit testing.
+    await tester.pumpAndSettle();
+    expect(picker.hitTestable(), findsOneWidget);
+    await tester.tap(picker.hitTestable());
     await tester.pumpAndSettle();
     expect(find.text('Cloud only'), findsWidgets);
     await tester.tap(find.text('Local only').last);
@@ -172,7 +175,9 @@ void main() {
     await tester.pumpAndSettle();
     final browse = find.text('Browse 32 published models');
     await tester.ensureVisible(browse);
-    await tester.tap(browse);
+    await tester.pumpAndSettle();
+    expect(browse.hitTestable(), findsOneWidget);
+    await tester.tap(browse.hitTestable());
     await tester.pumpAndSettle();
 
     expect(find.text('Search model IDs'), findsOneWidget);
