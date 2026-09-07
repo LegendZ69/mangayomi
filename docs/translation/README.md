@@ -112,6 +112,21 @@ translation-provider secrets. Analysis, the four translator test files, and an
 unsigned iOS debug build report separate outcomes; an earlier analysis/test
 failure does not hide the native build result.
 
+Formatting is checked for the translation source, tests and touched entry
+points. When formatting is required, the logs artifact includes a patch for
+review; the runner restores those files before analysis or compilation so the
+results still correspond to the checked-out revision. Analysis fails on
+informational diagnostics and warnings as well as errors.
+
+A separate job builds the simulator target and creates a fresh **iPhone 13**
+using an already-installed iOS runtime compatible with the selected Xcode SDK.
+It records the runtime, launch output, process survival and a startup screenshot.
+The screenshot must be inspected for UI readiness: a surviving process does
+not prove that Flutter finished startup. This smoke check does not navigate the
+translation workbench, contact a translation provider, or validate a physical
+phone. Existing media-kit simulator framework handling is specific to this
+repository; simulator results do not establish device-framework compatibility.
+
 Logs are retained for seven days. Successful compilation also produces a zipped
 unsigned `Runner.app`, preserving the bundle's permissions and symlinks. This is
 compile evidence, **not an installable IPA**, device validation, or a published
@@ -119,6 +134,10 @@ release. The workflow does not merge pull requests, create release tags, or
 publish releases. Its manual-dispatch control becomes available only after the
 workflow exists on the repository's default branch; the current draft runs from
 branch/pull-request events without a merge.
+
+Cloud-check references: [Dart formatting](https://dart.dev/tools/dart-format),
+[Flutter iOS setup](https://docs.flutter.dev/platform-integration/ios/setup), and
+[Apple simulator automation](https://developer.apple.com/videos/play/wwdc2019/418/).
 
 Follow-up work includes native/mobile and remote vision adapters, verified model
 artifacts, per-variant configuration manifests, chapter-wide scheduling,

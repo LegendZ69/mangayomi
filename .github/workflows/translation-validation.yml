@@ -5,6 +5,7 @@ on:
     branches: [codex/iphone-translator-workbench]
     paths:
       - '.github/workflows/translation-validation.yml'
+      - '.github/scripts/**'
       - 'lib/**'
       - 'test/**'
       - 'ios/**'
@@ -20,6 +21,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/translation-validation.yml'
+      - '.github/scripts/**'
       - 'lib/**'
       - 'test/**'
       - 'ios/**'
@@ -88,16 +90,22 @@ jobs:
         timeout-minutes: 15
         run: flutter pub get --enforce-lockfile 2>&1 | tee artifacts/logs/pub-get.log
 
+      - name: Check translation formatting
+        id: formatting
+        timeout-minutes: 5
+        run: bash .github/scripts/check_translation_format.sh
+
       # Generated Dart/Rust bridge and localization sources are committed.
       # Do not regenerate them or install an unrelated code generator in CI.
       - name: Analyze
         id: analyze
+        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' && steps.formatting.outputs.source_pristine == 'true' }}
         timeout-minutes: 10
-        run: flutter analyze --no-pub --no-fatal-infos --no-fatal-warnings 2>&1 | tee artifacts/logs/analyze.log
+        run: flutter analyze --no-pub --fatal-infos --fatal-warnings 2>&1 | tee artifacts/logs/analyze.log
 
       - name: Run translator unit and widget tests
         id: tests
-        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' && steps.formatting.outputs.source_pristine == 'true' }}
         timeout-minutes: 15
         run: |
           flutter test --no-pub --reporter expanded \
@@ -123,7 +131,7 @@ jobs:
       # native-build evidence. Earlier failed steps still fail the overall job.
       - name: Build unsigned iOS debug app
         id: build
-        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' && steps.rust.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' && steps.rust.outcome == 'success' && steps.formatting.outputs.source_pristine == 'true' }}
         timeout-minutes: 35
         run: flutter build ios --debug --no-codesign --no-pub 2>&1 | tee artifacts/logs/ios-build.log
 
@@ -148,12 +156,14 @@ jobs:
       - name: Record validation outcomes
         if: ${{ always() }}
         env:
+          FORMAT_OUTCOME: ${{ steps.formatting.outcome }}
           ANALYZE_OUTCOME: ${{ steps.analyze.outcome }}
           TEST_OUTCOME: ${{ steps.tests.outcome }}
           BUILD_OUTCOME: ${{ steps.build.outcome }}
         run: |
           mkdir -p artifacts/logs
           {
+            printf 'Formatting: %s\n' "$FORMAT_OUTCOME"
             printf 'Analysis: %s\n' "$ANALYZE_OUTCOME"
             printf 'Translator tests: %s\n' "$TEST_OUTCOME"
             printf 'Unsigned iOS compilation: %s\n' "$BUILD_OUTCOME"
@@ -167,6 +177,84 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: translator-validation-logs-${{ github.run_id }}-${{ github.run_attempt }}
-          path: artifacts/logs/
+          path: |
+            artifacts/logs/
+            artifacts/translation-format.patch
+          if-no-files-found: warn
+          retention-days: 7
+
+  simulator:
+    name: iPhone 13 simulator startup
+    runs-on: macos-15
+    timeout-minutes: 50
+    env:
+      CI: 'true'
+      COCOAPODS_DISABLE_STATS: 'true'
+      FLUTTER_SUPPRESS_ANALYTICS: 'true'
+      DART_SUPPRESS_ANALYTICS: 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Record simulator runner
+        run: |
+          mkdir -p artifacts/simulator
+          {
+            git rev-parse HEAD
+            uname -m
+            sw_vers
+            xcodebuild -version
+          } 2>&1 | tee artifacts/simulator/source-and-runner.log
+          # Existing media-kit simulator support requires Apple Silicon.
+          test "$(uname -m)" = arm64
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          channel: stable
+          flutter-version: '3.47.2'
+          cache: true
+
+      - name: Install locked dependencies
+        timeout-minutes: 15
+        run: flutter pub get --enforce-lockfile 2>&1 | tee artifacts/simulator/pub-get.log
+
+      - name: Set up Rust for Apple Silicon simulator
+        uses: dtolnay/rust-toolchain@d1031067263f94b142dd6c0ce24c5eb9d02d52a0 # master
+        with:
+          toolchain: stable
+          targets: aarch64-apple-ios-sim
+
+      - name: Build iOS simulator app
+        id: simulator_build
+        timeout-minutes: 30
+        run: flutter build ios --simulator --debug --no-codesign --no-pub 2>&1 | tee artifacts/simulator/build.log
+
+      - name: Launch on a fresh iPhone 13 simulator
+        id: simulator_launch
+        timeout-minutes: 8
+        run: python3 .github/scripts/ios_simulator_smoke.py
+
+      - name: Record simulator outcome
+        if: ${{ always() }}
+        env:
+          BUILD_OUTCOME: ${{ steps.simulator_build.outcome }}
+          LAUNCH_OUTCOME: ${{ steps.simulator_launch.outcome }}
+        run: |
+          {
+            printf 'Simulator compilation: %s\n' "$BUILD_OUTCOME"
+            printf 'Simulator launch smoke check: %s\n' "$LAUNCH_OUTCOME"
+            printf '\nInspect the screenshot for UI readiness. Process survival alone does not prove it.\n'
+            printf 'No physical-device, provider, signing-identity, or release validation is performed.\n'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload simulator evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: iphone-13-simulator-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/simulator/
           if-no-files-found: warn
           retention-days: 7

@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -55,22 +54,18 @@ class _TranslationScreenState extends State<TranslationScreen> {
   Future<void> _importPage() async {
     setState(() => _importing = true);
     try {
-      final selected = await FilePicker.pickFiles(
+      final file = await FilePicker.pickFile(
         type: FileType.custom,
         allowedExtensions: const ['jpg', 'jpeg', 'png', 'webp'],
-        allowMultiple: false,
-        withData: false,
       );
-      if (selected == null || selected.files.isEmpty) return;
-      final file = selected.files.single;
+      if (file == null) return;
       const maxBytes = 7000000;
       if (file.size <= 0 || file.size > maxBytes) {
         _message('Choose a nonempty image no larger than 7 MB (7,000,000 bytes).');
         return;
       }
-      final bytes = file.bytes ??
-          (file.path == null ? null : await File(file.path!).readAsBytes());
-      if (bytes == null || bytes.isEmpty || bytes.length > maxBytes) {
+      final bytes = await file.readAsBytes();
+      if (bytes.isEmpty || bytes.length > maxBytes) {
         _message('This image could not be read, or exceeds 7 MB.');
         return;
       }

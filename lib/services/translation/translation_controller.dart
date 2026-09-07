@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
-import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
@@ -497,8 +496,9 @@ class TranslationController extends ChangeNotifier {
         ![
           TranslationJobStatus.queued,
           TranslationJobStatus.running,
-        ].contains(job.status))
+        ].contains(job.status)) {
       return;
+    }
     if (_activeId == id) {
       ++_attempt; // Ignore a late success even if transport cancellation loses a race.
       _activeClient?.cancel();
@@ -523,8 +523,9 @@ class TranslationController extends ChangeNotifier {
           TranslationJobStatus.failed,
           TranslationJobStatus.cancelled,
           TranslationJobStatus.interrupted,
-        ].contains(job.status))
+        ].contains(job.status)) {
       return;
+    }
     _isPaused = true;
     job.status = TranslationJobStatus.queued;
     job.stage = 'queued';
@@ -559,8 +560,9 @@ class TranslationController extends ChangeNotifier {
         [
           TranslationJobStatus.queued,
           TranslationJobStatus.running,
-        ].contains(job.status))
+        ].contains(job.status)) {
       return;
+    }
     final index = _jobs.indexOf(job);
     _jobs.remove(job);
     // Commit removal before deleting bytes: never leave a durable job without
@@ -665,7 +667,7 @@ class TranslationController extends ChangeNotifier {
     if (value is String) {
       final safe = redactTranslationData(
         value,
-        secrets: [if (_activeCredential != null) _activeCredential!],
+        secrets: [?_activeCredential],
       ).toString().replaceAll(RegExp(r'AIza[0-9A-Za-z_-]+'), '[REDACTED]');
       return safe.length > 16000
           ? '${safe.substring(0, 16000)} [TRUNCATED]'

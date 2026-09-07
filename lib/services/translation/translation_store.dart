@@ -12,7 +12,7 @@ import 'translation_settings.dart';
 /// Atomic replacement and serialization preserve the previous complete snapshot
 /// if a write fails. Credentials never enter this store.
 class TranslationStore {
-  TranslationStore({Directory? directory}) : _directory = directory;
+  TranslationStore({this._directory});
 
   Directory? _directory;
   Future<void> _writes = Future<void>.value();
@@ -27,7 +27,7 @@ class TranslationStore {
 
   Future<T> _serialized<T>(Future<T> Function() operation) {
     final result = _writes.then((_) => operation());
-    _writes = result.then<void>((_) {}, onError: (Object _, StackTrace __) {});
+    _writes = result.then<void>((_) {}, onError: (Object _, StackTrace _) {});
     return result;
   }
 
