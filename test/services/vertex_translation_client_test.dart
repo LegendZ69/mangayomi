@@ -296,20 +296,101 @@ void main() {
       });
     }
 
-    test('rejects endpoint path injection', () async {
+    for (final location in ['global', 'us', 'eu']) {
+      test('accepts the dotted default model ID in $location', () async {
+        var calls = 0;
+        final client = VertexTranslationClient(
+          client: MockClient((request) async {
+            calls++;
+            expect(request.url.scheme, 'https');
+            expect(
+              request.url.host,
+              location == 'global'
+                  ? 'aiplatform.googleapis.com'
+                  : '$location-aiplatform.googleapis.com',
+            );
+            expect(
+              request.url.pathSegments.last,
+              'gemini-3.8-flash:generateContent',
+            );
+            expect(request.url.query, isEmpty);
+            return _jsonResponse(_response());
+          }),
+        );
+        addTearDown(client.close);
+        await _translate(
+          client,
+          settings: _settings.copyWith(location: location),
+        );
+        expect(calls, 1);
+      });
+    }
+
+    test('a well-formed dotted model still requires adapter support', () async {
       final client = VertexTranslationClient(
         client: MockClient((_) async {
-          fail('Invalid endpoint must never send a request.');
+          fail('An unsupported model must never send a request.');
         }),
       );
       addTearDown(client.close);
       await expectLater(
         _translate(
           client,
-          settings: _settings.copyWith(location: 'global.evil.example/path'),
+          settings: _settings.copyWith(model: 'gemini-3.8-pro'),
         ),
-        throwsA(_apiError('invalid_endpoint')),
+        throwsA(_apiError('unsupported_model')),
       );
+    });
+
+    for (final field in ['model', 'projectId', 'location']) {
+      for (final value in [
+        '../other',
+        'global.evil.example/path',
+        'https://evil.example',
+        'model%2Fother',
+        'model?key=secret',
+        'model#fragment',
+        'model\r\nInjected: value',
+      ]) {
+        test(
+          'rejects endpoint injection in $field: ${jsonEncode(value)}',
+          () async {
+            final client = VertexTranslationClient(
+              client: MockClient((_) async {
+                fail('Invalid endpoint must never send a request.');
+              }),
+            );
+            addTearDown(client.close);
+            final settings = switch (field) {
+              'model' => _settings.copyWith(model: value),
+              'projectId' => _settings.copyWith(projectId: value),
+              _ => _settings.copyWith(location: value),
+            };
+            await expectLater(
+              _translate(client, settings: settings),
+              throwsA(_apiError('invalid_endpoint')),
+            );
+          },
+        );
+      }
+    }
+
+    test('model dots do not permit dots in project or location', () async {
+      for (final settings in [
+        _settings.copyWith(projectId: 'translation.project'),
+        _settings.copyWith(location: 'global.evil'),
+      ]) {
+        final client = VertexTranslationClient(
+          client: MockClient((_) async {
+            fail('Invalid endpoint must never send a request.');
+          }),
+        );
+        addTearDown(client.close);
+        await expectLater(
+          _translate(client, settings: settings),
+          throwsA(_apiError('invalid_endpoint')),
+        );
+      }
     });
 
     test('rejects empty image before HTTP', () async {

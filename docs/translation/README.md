@@ -87,19 +87,38 @@ iPhone 13 performance from desktop or newer-iPhone benchmark numbers.
 
 ## Verification and outstanding integration
 
-Tests have been written for execution boundaries, configuration persistence,
-request construction, structured-result validation, log redaction, queue
-lifecycle, and iPhone-sized widget layouts. They have **not been executed** in
-this environment: Flutter bootstrap attempted to contact a cloud instance
-metadata endpoint and was stopped by the environment's security review. No
-workaround was attempted. Static source review and whitespace checks are not
-a substitute for compiler, analyzer, or test results.
+Tests cover execution boundaries, configuration persistence, request
+construction, structured-result validation, log redaction, queue lifecycle,
+and iPhone-sized widget layouts. Local Flutter bootstrap was stopped by the
+environment's security review after it attempted to contact a cloud instance
+metadata endpoint; that local execution path remains unused. The user later
+authorized a separate GitHub-hosted cloud validation environment. See the
+[Actions runs](https://github.com/LegendZ69/mangayomi/actions) and the exact
+revision tested before relying on a result. Static source review and whitespace
+checks are not a substitute for compiler, analyzer, or test results.
 
 A successful build, automated tests, and physical iPhone 13 tests are still
 required before calling this device-validated. Run those checks in an authorized
 Flutter/Xcode environment. Live Google calls require user credentials and
 explicit start; the added automated tests use injected fake transports/stores
 and must not contact Google or cloud instance metadata.
+
+### Authorized cloud validation
+
+The `Translator validation` GitHub Actions workflow runs on the translator
+branch and relevant pull-request changes. It uses a pinned Flutter SDK on a
+GitHub-hosted macOS runner, read-only repository permissions, and no signing or
+translation-provider secrets. Analysis, the four translator test files, and an
+unsigned iOS debug build report separate outcomes; an earlier analysis/test
+failure does not hide the native build result.
+
+Logs are retained for seven days. Successful compilation also produces a zipped
+unsigned `Runner.app`, preserving the bundle's permissions and symlinks. This is
+compile evidence, **not an installable IPA**, device validation, or a published
+release. The workflow does not merge pull requests, create release tags, or
+publish releases. Its manual-dispatch control becomes available only after the
+workflow exists on the repository's default branch; the current draft runs from
+branch/pull-request events without a merge.
 
 Follow-up work includes native/mobile and remote vision adapters, verified model
 artifacts, per-variant configuration manifests, chapter-wide scheduling,

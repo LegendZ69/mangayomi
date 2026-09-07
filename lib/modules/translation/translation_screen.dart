@@ -55,7 +55,7 @@ class _TranslationScreenState extends State<TranslationScreen> {
   Future<void> _importPage() async {
     setState(() => _importing = true);
     try {
-      final selected = await FilePicker.platform.pickFiles(
+      final selected = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: const ['jpg', 'jpeg', 'png', 'webp'],
         allowMultiple: false,

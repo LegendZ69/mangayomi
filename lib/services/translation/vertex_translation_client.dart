@@ -541,8 +541,9 @@ class VertexTranslationClient {
                   'invalid_response',
                   'Could not process the translation response.',
                 );
-          if (!failure.retryable || attempt >= settings.maxRetries)
+          if (!failure.retryable || attempt >= settings.maxRetries) {
             throw failure;
+          }
           // Bounded exponential backoff; this is the application's retry policy.
           final wait = Duration(seconds: 1 << attempt);
           emit('retry', 'Waiting before retrying a temporary API failure.', {
@@ -651,11 +652,14 @@ class VertexTranslationClient {
         'Use a supported image smaller than 7 MB.',
       );
     }
-    final identifier = RegExp(r'^[a-zA-Z0-9][a-zA-Z0-9_-]*$');
-    if (!identifier.hasMatch(settings.model) ||
+    final projectIdentifier = RegExp(r'^[a-zA-Z0-9][a-zA-Z0-9_-]*$');
+    // Published model IDs include version dots; project and location rules
+    // remain separate. The supported-model allowlist below still applies.
+    final modelIdentifier = RegExp(r'^[a-zA-Z0-9][a-zA-Z0-9_.-]*$');
+    if (!modelIdentifier.hasMatch(settings.model) ||
         !RegExp(r'^[a-z][a-z0-9-]*$').hasMatch(settings.location) ||
         (settings.vertexMode == VertexMode.full &&
-            !identifier.hasMatch(settings.projectId))) {
+            !projectIdentifier.hasMatch(settings.projectId))) {
       throw const TranslationApiException(
         'invalid_endpoint',
         'Enter a valid project, model and Google Cloud location.',
