@@ -738,35 +738,53 @@ class _ModelCatalogDialogState extends State<_ModelCatalogDialog> {
   Widget build(BuildContext context) {
     final matches = widget.models.where((model) => model.toLowerCase()
         .contains(_search.text.trim().toLowerCase())).toList();
-    return AlertDialog(
-      scrollable: true,
-      title: Text(widget.title),
-      content: SizedBox(
-        width: double.maxFinite,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: _search,
-              onChanged: (_) => setState(() {}),
-              decoration: const InputDecoration(
-                labelText: 'Search model IDs',
-                prefixIcon: Icon(Icons.search),
-              ),
+    // Apply keyboard insets immediately. Dialog's inset animation can retain
+    // the taller portrait keyboard while rotation has already reduced height,
+    // briefly leaving less room than its fixed Close action needs.
+    return Padding(
+      padding: MediaQuery.viewInsetsOf(context),
+      child: MediaQuery.removeViewInsets(
+        context: context,
+        removeLeft: true,
+        removeTop: true,
+        removeRight: true,
+        removeBottom: true,
+        child: AlertDialog(
+          scrollable: true,
+          title: Text(widget.title),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: _search,
+                  onChanged: (_) => setState(() {}),
+                  decoration: const InputDecoration(
+                    labelText: 'Search model IDs',
+                    prefixIcon: Icon(Icons.search),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text('Published upstream · not integrated in this build'),
+                const SizedBox(height: 8),
+                for (final model in matches)
+                  ListTile(
+                    title: Text(model),
+                    trailing: const Icon(Icons.add_circle_outline),
+                    onTap: () => Navigator.pop(context, model),
+                  ),
+              ],
             ),
-            const SizedBox(height: 8),
-            const Text('Published upstream · not integrated in this build'),
-            const SizedBox(height: 8),
-            for (final model in matches)
-              ListTile(
-                title: Text(model),
-                trailing: const Icon(Icons.add_circle_outline),
-                onTap: () => Navigator.pop(context, model),
-              ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Close'),
+            ),
           ],
         ),
       ),
-      actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close'))],
     );
   }
 }

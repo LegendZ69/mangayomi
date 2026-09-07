@@ -97,9 +97,9 @@ authorized a separate GitHub-hosted cloud validation environment. See the
 revision tested before relying on a result. Static source review and whitespace
 checks are not a substitute for compiler, analyzer, or test results.
 
-A successful build, automated tests, and physical iPhone 13 tests are still
-required before calling this device-validated. Run those checks in an authorized
-Flutter/Xcode environment. Live Google calls require user credentials and
+Passing analysis, automated tests and unsigned compilation do not establish
+device validation. Physical iPhone 13 tests are required before calling this
+device-validated. Live Google calls require user credentials and
 explicit start; the added automated tests use injected fake transports/stores
 and must not contact Google or cloud instance metadata.
 
