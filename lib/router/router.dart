@@ -33,6 +33,7 @@ import 'package:mangayomi/modules/more/settings/reader/providers/reader_state_pr
 import 'package:mangayomi/modules/more/statistics/statistics_screen.dart';
 import 'package:mangayomi/modules/novel/novel_reader_view.dart';
 import 'package:mangayomi/modules/tracker_library/tracker_library_screen.dart';
+import 'package:mangayomi/modules/translation/translation_screen.dart';
 import 'package:mangayomi/modules/updates/updates_screen.dart';
 import 'package:mangayomi/modules/more/categories/categories_screen.dart';
 import 'package:mangayomi/modules/more/settings/downloads/downloads_screen.dart';
@@ -208,6 +209,7 @@ class RouterNotifier extends ChangeNotifier {
       builder: (itemType) => ExtensionsLang(itemType: itemType),
     ),
     _genericRoute(name: "settings", child: const SettingsScreen()),
+    _genericRoute(name: "translation", child: const TranslationScreen()),
     _genericRoute(name: "appearance", child: const AppearanceScreen()),
     _genericRoute<Source>(
       name: "extension_detail",

@@ -1,0 +1,156 @@
+name: iOS sideload package
+
+on:
+  push:
+    branches: [codex/iphone-translator-workbench]
+    paths:
+      - '.github/workflows/ios-sideload.yml'
+      - '.github/scripts/package_ios_sideload.py'
+      - 'test/ci/**'
+      - 'lib/**'
+      - 'ios/**'
+      - 'hook/**'
+      - 'rust/**'
+      - 'rust_builder/**'
+      - 'assets/**'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/ios-sideload.yml'
+      - '.github/scripts/package_ios_sideload.py'
+      - 'test/ci/**'
+      - 'lib/**'
+      - 'ios/**'
+      - 'hook/**'
+      - 'rust/**'
+      - 'rust_builder/**'
+      - 'assets/**'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+  # GitHub exposes this control after the workflow reaches the default branch.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-sideload-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  sideload:
+    name: Unsigned release IPA for AltStore and SideStore
+    runs-on: macos-26
+    timeout-minutes: 60
+    env:
+      CI: 'true'
+      COCOAPODS_DISABLE_STATS: 'true'
+      FLUTTER_SUPPRESS_ANALYTICS: 'true'
+      DART_SUPPRESS_ANALYTICS: 'true'
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Record source and verify distribution toolchain
+        run: |
+          mkdir -p artifacts/logs
+          test "$(uname -m)" = arm64
+          test -d "$DEVELOPER_DIR"
+          test "$(xcodebuild -version | head -n 1)" = 'Xcode 26.6'
+          {
+            git rev-parse HEAD
+            sw_vers
+            xcodebuild -version
+            xcrun --sdk iphoneos --show-sdk-version
+          } 2>&1 | tee artifacts/logs/source-and-runner.log
+          printf 'SOURCE_COMMIT=%s\n' "$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          channel: stable
+          flutter-version: '3.47.2'
+          cache: true
+
+      - name: Record Flutter version
+        run: flutter --version 2>&1 | tee artifacts/logs/flutter-version.log
+
+      - name: Install locked dependencies
+        timeout-minutes: 15
+        run: flutter pub get --enforce-lockfile 2>&1 | tee artifacts/logs/pub-get.log
+
+      - name: Set up Rust for iPhone arm64
+        uses: dtolnay/rust-toolchain@d1031067263f94b142dd6c0ce24c5eb9d02d52a0 # master
+        with:
+          toolchain: stable
+          targets: aarch64-apple-ios
+
+      - name: Check distribution guards
+        run: python3 -m unittest discover -s test/ci -p 'test_*.py' -v
+
+      - name: Build unsigned iOS release app
+        id: build
+        timeout-minutes: 40
+        # AOT release avoids the debugger/JIT requirement of a debug app.
+        # This job has no Apple signing or translation-provider secrets.
+        run: flutter build ios --release --no-codesign --no-pub 2>&1 | tee artifacts/logs/ios-release-build.log
+
+      - name: Validate and package sideload IPA
+        id: package
+        run: python3 .github/scripts/package_ios_sideload.py --source-commit "$SOURCE_COMMIT" 2>&1 | tee artifacts/logs/package.log
+
+      - name: Upload IPA and verification manifest
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: Mangayomi-ios-sideload-unsigned-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/distribution/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+
+      - name: Preserve compiled bundle after a packaging failure
+        if: ${{ failure() && steps.build.outcome == 'success' && steps.package.outcome == 'failure' }}
+        run: |
+          mkdir -p artifacts/diagnostics
+          ditto -c -k --sequesterRsrc --keepParent \
+            build/ios/iphoneos/Runner.app artifacts/diagnostics/unsigned-release.app.zip
+
+      - name: Upload packaging diagnostic bundle
+        if: ${{ failure() && steps.build.outcome == 'success' && steps.package.outcome == 'failure' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ios-sideload-diagnostic-bundle-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/diagnostics/
+          if-no-files-found: warn
+          compression-level: 0
+          retention-days: 1
+
+      - name: Record packaging outcome
+        if: ${{ always() }}
+        env:
+          PACKAGE_OUTCOME: ${{ steps.package.outcome }}
+        run: |
+          {
+            printf 'Unsigned release IPA packaging: %s\n' "$PACKAGE_OUTCOME"
+            printf '\nInstall through AltStore or SideStore, which must sign the IPA for your device.\n'
+            printf 'The archive is not an Apple-signed installation or a TestFlight upload.\n'
+            printf 'See docs/translation/installation.md for all three installation routes.\n'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload distribution build logs
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ios-sideload-logs-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/logs/
+          if-no-files-found: warn
+          retention-days: 14

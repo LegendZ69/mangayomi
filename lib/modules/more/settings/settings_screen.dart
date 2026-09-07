@@ -50,6 +50,12 @@ class SettingsScreen extends StatelessWidget {
               onTap: () => context.push('/playerOverview'),
             ),
             ListTileWidget(
+              title: 'Page translation',
+              subtitle: 'Queue, vision execution modes and Vertex AI settings',
+              icon: Icons.translate_rounded,
+              onTap: () => context.push('/translation'),
+            ),
+            ListTileWidget(
               title: l10n.downloads,
               icon: Icons.download_outlined,
               onTap: () => context.push('/downloads'),
