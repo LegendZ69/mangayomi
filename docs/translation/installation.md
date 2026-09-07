@@ -49,6 +49,10 @@ and pull-request changes, using Flutter 3.47.2 and Xcode 26.6. Its artifact and
 logs remain available for 14 days. The manifest records the bundle/version,
 minimum iOS version, architecture checks and package size, and explicitly sets
 `requires_resigning: true` and `installable_as_downloaded: false`.
+The packager verifies the pinned Dart SDK's AOT snapshot data/text exports,
+`_kDartSnapshotData` and `_kDartSnapshotText`, alongside physical-device Mach-O
+and archive-integrity checks.
+[Pinned Dart snapshot contract](https://github.com/dart-lang/sdk/blob/60a57cd42d64dc03e9f07aa60a2e250755c1ef28/runtime/include/dart_api.h)
 
 AltStore Classic's free-account apps expire after seven days and share a
 three-app installation limit; use its **My Apps** refresh controls before the

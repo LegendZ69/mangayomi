@@ -30,10 +30,10 @@ DEFAULT_APP = "build/ios/iphoneos/Runner.app"
 DEFAULT_OUTPUT = "artifacts/distribution/Mangayomi-translator-sideload-unsigned.ipa"
 JIT_FILES = {"kernel_blob.bin", "vm_snapshot_data", "isolate_snapshot_data"}
 PRIVATE_SUFFIXES = {".mobileprovision", ".p12", ".pfx", ".p8"}
-AOT_SYMBOLS = {
-    "_kDartVmSnapshotData", "_kDartVmSnapshotInstructions",
-    "_kDartIsolateSnapshotData", "_kDartIsolateSnapshotInstructions",
-}
+# Flutter 3.47.2 pins this Dart revision and loads its data/text snapshot exports:
+# https://github.com/dart-lang/sdk/blob/60a57cd42d64dc03e9f07aa60a2e250755c1ef28/runtime/include/dart_api.h
+# https://github.com/flutter/flutter/blob/3.47.2/engine/src/flutter/runtime/dart_snapshot.cc
+AOT_SYMBOLS = {"_kDartSnapshotData", "_kDartSnapshotText"}
 
 
 def require(condition, message):
@@ -166,8 +166,10 @@ def inspect_bundle(app):
             "The app is missing its Flutter assets.")
     symbols = run(["/usr/bin/xcrun", "nm", "-gU", str(app / "Frameworks/App.framework/App")])
     exported = {line.split()[-1] for line in symbols.splitlines() if line.split()}
+    observed_dart = ", ".join(sorted(name for name in exported if name.startswith("_kDart")))
     require(AOT_SYMBOLS <= exported,
-            "App.framework does not export all four Dart AOT snapshot symbols.")
+            "App.framework does not export the pinned Dart AOT snapshot data/text symbols; "
+            f"observed Dart exports: {observed_dart or '(none)'}.")
     return {
         "bundle_id": bundle_id, "version": info["CFBundleShortVersionString"],
         "build": info["CFBundleVersion"], "minimum_ios": info["MinimumOSVersion"],

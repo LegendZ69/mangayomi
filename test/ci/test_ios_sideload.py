@@ -17,6 +17,9 @@ SPEC = importlib.util.spec_from_file_location("package_ios_sideload", SCRIPT)
 PACKAGER = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(PACKAGER)
 
+# Documented Dart 60a57cd... exports, independent of the implementation constant.
+AOT_NM_OUTPUT = "0000000000040000 S _kDartSnapshotData\n0000000000004000 T _kDartSnapshotText"
+
 
 def device_binary(*, platform=2, cpu=0x0100000C, filetype=2):
     # Minimal arm64 Mach-O header and LC_BUILD_VERSION for metadata testing.
@@ -93,21 +96,34 @@ class SideloadArtifactTests(unittest.TestCase):
             PACKAGER.mach_o_device(binary, 2)
 
     def test_app_requires_aot_snapshot_exports(self):
-        exported = "\n".join(f"0000000000001000 T {name}" for name in PACKAGER.AOT_SYMBOLS)
-        with patch.object(PACKAGER, "run", return_value=exported) as command:
+        with patch.object(PACKAGER, "run", return_value=AOT_NM_OUTPUT) as command:
             metadata = PACKAGER.inspect_bundle(self.app)
             self.assertEqual(metadata["bundle_id"], "com.example.translator")
+            self.assertEqual(metadata["dart_aot_symbols_verified"],
+                             ["_kDartSnapshotData", "_kDartSnapshotText"])
             self.assertEqual(command.call_args.args[0][:3], ["/usr/bin/xcrun", "nm", "-gU"])
         with patch.object(PACKAGER, "run", return_value="0000000000001000 T _main"):
             with self.assertRaisesRegex(ValueError, "AOT snapshot"):
                 PACKAGER.inspect_bundle(self.app)
 
+    def test_pinned_aot_contract_rejects_either_missing_export_and_legacy_exports(self):
+        legacy = (
+            "0000000000001000 S _kDartVmSnapshotData\n"
+            "0000000000002000 T _kDartVmSnapshotInstructions\n"
+            "0000000000003000 S _kDartIsolateSnapshotData\n"
+            "0000000000004000 T _kDartIsolateSnapshotInstructions"
+        )
+        for exported in (*AOT_NM_OUTPUT.splitlines(), legacy):
+            with self.subTest(exported=exported):
+                with patch.object(PACKAGER, "run", return_value=exported):
+                    with self.assertRaisesRegex(ValueError, "pinned Dart AOT snapshot data/text"):
+                        PACKAGER.inspect_bundle(self.app)
+
     def test_frameworks_keep_0644_mode_while_main_requires_execute_permission(self):
         frameworks = ("Frameworks/App.framework/App", "Frameworks/Flutter.framework/Flutter")
         for relative in frameworks:
             (self.app / relative).chmod(0o644)
-        exported = "\n".join(f"0000000000001000 T {name}" for name in PACKAGER.AOT_SYMBOLS)
-        with patch.object(PACKAGER, "run", return_value=exported):
+        with patch.object(PACKAGER, "run", return_value=AOT_NM_OUTPUT):
             self.assertEqual(PACKAGER.inspect_bundle(self.app)["executable"], "Runner")
         inventory = PACKAGER.bundle_inventory(self.app)
         self.write_archive()
