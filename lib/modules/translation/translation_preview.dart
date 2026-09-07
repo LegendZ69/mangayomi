@@ -81,8 +81,9 @@ class _TranslationPreviewState extends State<TranslationPreview> {
       decoded = null; // The widget now owns the decoded image.
     } catch (_) {
       if (mounted) {
-        setState(() => _loadError =
-            'The saved page could not be decoded. Re-import it as JPEG, PNG, or WebP.');
+        setState(
+          () => _loadError = 'The saved page could not be decoded. Re-import it as JPEG, PNG, or WebP.',
+        );
       }
     } finally {
       decoded?.dispose();
@@ -98,12 +99,18 @@ class _TranslationPreviewState extends State<TranslationPreview> {
     child: AnimatedBuilder(
       animation: _controller,
       builder: (context, _) {
-        final job = _controller.jobs
-            .where((candidate) => candidate.id == widget.job.id)
-            .firstOrNull ?? widget.job;
+        final job =
+            _controller.jobs
+                .where((candidate) => candidate.id == widget.job.id)
+                .firstOrNull ??
+            widget.job;
         return Scaffold(
           appBar: AppBar(
-            title: Text(job.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+            title: Text(
+              job.title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
             bottom: const TabBar(
               tabs: [
                 Tab(text: 'Page', icon: Icon(Icons.image_outlined)),
@@ -129,84 +136,102 @@ class _TranslationPreviewState extends State<TranslationPreview> {
 
   Widget _page(BuildContext context, TranslationJob job) => CustomScrollView(
     slivers: [
-      SliverToBoxAdapter(child: Column(children: [
-        Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        child: Row(
+      SliverToBoxAdapter(
+        child: Column(
           children: [
-            Expanded(
-              child: SwitchListTile.adaptive(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Translation overlay'),
-                subtitle: Text(job.result == null
-                    ? 'Available after translation completes'
-                    : 'Pinch to zoom; drag to read'),
-                value: _showTranslation,
-                onChanged: job.result == null
-                    ? null
-                    : (value) => setState(() => _showTranslation = value),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: SwitchListTile.adaptive(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Translation overlay'),
+                      subtitle: Text(
+                        job.result == null
+                            ? 'Available after translation completes'
+                            : 'Pinch to zoom; drag to read',
+                      ),
+                      value: _showTranslation,
+                      onChanged: job.result == null
+                          ? null
+                          : (value) => setState(() => _showTranslation = value),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Reset zoom and position',
+                    onPressed: () => _transformation.value = Matrix4.identity(),
+                    icon: const Icon(Icons.fit_screen),
+                  ),
+                ],
               ),
             ),
-            IconButton(
-              tooltip: 'Reset zoom and position',
-              onPressed: () => _transformation.value = Matrix4.identity(),
-              icon: const Icon(Icons.fit_screen),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Text(
+                'Preview only; original page is unchanged. Full text is in the Text tab. '
+                'Preview decoding is capped at 4 million pixels / 8,192 pixels per side.',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
             ),
           ],
         ),
-        ),
-        Padding(
-          padding: const EdgeInsets.all(12),
-          child: Text(
-            'Preview only; original page is unchanged. Full text is in the Text tab. '
-            'Preview decoding is capped at 4 million pixels / 8,192 pixels per side.',
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-        ),
-      ])),
+      ),
       SliverFillRemaining(
         hasScrollBody: true,
         child: _loadError != null
-            ? Center(child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Text(_loadError!, textAlign: TextAlign.center),
-              ))
+            ? Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text(_loadError!, textAlign: TextAlign.center),
+                ),
+              )
             : _image == null || _sourceSize == null
-                ? const Center(child: CircularProgressIndicator())
-                : LayoutBuilder(
-                    builder: (context, constraints) {
-                      final width = constraints.maxWidth;
-                      final height = width * _sourceSize!.height / _sourceSize!.width;
-                      return ClipRect(
-                        child: InteractiveViewer(
-                          transformationController: _transformation,
-                          constrained: false,
-                          alignment: Alignment.topLeft,
-                          minScale: 1,
-                          maxScale: 6,
-                          boundaryMargin: const EdgeInsets.all(24),
-                          child: SizedBox(
-                            width: width,
-                            height: height,
-                            child: Stack(
-                              children: [
-                                Positioned.fill(
-                                  child: Semantics(
-                                    label: 'Original page: ${job.title}',
-                                    image: true,
-                                    child: RawImage(image: _image, fit: BoxFit.fill),
-                                  ),
+            ? const Center(child: CircularProgressIndicator())
+            : LayoutBuilder(
+                builder: (context, constraints) {
+                  final width = constraints.maxWidth;
+                  final height =
+                      width * _sourceSize!.height / _sourceSize!.width;
+                  return ClipRect(
+                    child: InteractiveViewer(
+                      transformationController: _transformation,
+                      constrained: false,
+                      alignment: Alignment.topLeft,
+                      minScale: 1,
+                      maxScale: 6,
+                      boundaryMargin: const EdgeInsets.all(24),
+                      child: SizedBox(
+                        width: width,
+                        height: height,
+                        child: Stack(
+                          children: [
+                            Positioned.fill(
+                              child: Semantics(
+                                label: 'Original page: ${job.title}',
+                                image: true,
+                                child: RawImage(
+                                  image: _image,
+                                  fit: BoxFit.fill,
                                 ),
-                                if (_showTranslation && job.result != null)
-                                  for (final region in job.result!.regions)
-                                    _regionOverlay(context, region, job.settings, width, height),
-                              ],
+                              ),
                             ),
-                          ),
+                            if (_showTranslation && job.result != null)
+                              for (final region in job.result!.regions)
+                                _regionOverlay(
+                                  context,
+                                  region,
+                                  job.settings,
+                                  width,
+                                  height,
+                                ),
+                          ],
                         ),
-                      );
-                    },
-                  ),
+                      ),
+                    ),
+                  );
+                },
+              ),
       ),
     ],
   );
@@ -267,12 +292,16 @@ class _TranslationPreviewState extends State<TranslationPreview> {
   Widget _transcript(BuildContext context, TranslationJob job) {
     final regions = job.result?.regions ?? const <TranslationRegion>[];
     if (regions.isEmpty) {
-      return Center(child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Text(job.status == TranslationJobStatus.succeeded
-            ? 'No readable text detected on this page.'
-            : 'No translated text yet. Complete this job from the queue.'),
-      ));
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            job.status == TranslationJobStatus.succeeded
+                ? 'No readable text detected on this page.'
+                : 'No translated text yet. Complete this job from the queue.',
+          ),
+        ),
+      );
     }
     return ListView.separated(
       padding: const EdgeInsets.all(16),
@@ -283,16 +312,24 @@ class _TranslationPreviewState extends State<TranslationPreview> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Region ${index + 1}', style: Theme.of(context).textTheme.titleSmall),
+            Text(
+              'Region ${index + 1}',
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
             const SizedBox(height: 8),
             Text('Original', style: Theme.of(context).textTheme.labelMedium),
             SelectableText(region.sourceText),
             const SizedBox(height: 12),
-            Text(job.settings.targetLanguage, style: Theme.of(context).textTheme.labelMedium),
+            Text(
+              job.settings.targetLanguage,
+              style: Theme.of(context).textTheme.labelMedium,
+            ),
             SelectableText(region.translatedText),
             TextButton.icon(
               onPressed: () async {
-                await Clipboard.setData(ClipboardData(text: region.translatedText));
+                await Clipboard.setData(
+                  ClipboardData(text: region.translatedText),
+                );
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Translation copied.')),
@@ -309,10 +346,10 @@ class _TranslationPreviewState extends State<TranslationPreview> {
   }
 
   Widget _details(BuildContext context, TranslationJob job) {
-    final settings = const JsonEncoder.withIndent('  ').convert(
-      redactTranslationData(job.settings.toJson()),
-    );
-    final usage = const JsonEncoder.withIndent('  ').convert(job.result?.usageMetadata ?? {});
+    final settings = const JsonEncoder.withIndent('  ')
+        .convert(redactTranslationData(job.settings.toJson()));
+    final usage = const JsonEncoder.withIndent('  ')
+        .convert(job.result?.usageMetadata ?? {});
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -322,24 +359,43 @@ class _TranslationPreviewState extends State<TranslationPreview> {
         Text('Created: ${job.createdAt.toLocal()}'),
         Text('Updated: ${job.updatedAt.toLocal()}'),
         if (_sourceSize != null)
-          Text('Source: ${_sourceSize!.width.toInt()} × ${_sourceSize!.height.toInt()} pixels'),
+          Text(
+            'Source: ${_sourceSize!.width.toInt()} × ${_sourceSize!.height.toInt()} pixels',
+          ),
         if (job.error != null) ...[
           const SizedBox(height: 16),
-          Text(job.error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+          Text(
+            job.error!,
+            style: TextStyle(color: Theme.of(context).colorScheme.error),
+          ),
         ],
         const SizedBox(height: 24),
-        Text('Requested settings snapshot', style: Theme.of(context).textTheme.titleMedium),
+        Text(
+          'Requested settings snapshot',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
         const SizedBox(height: 8),
-        const Text('Settings changes apply to newly queued pages. Effective API '
-            'settings, timing, and errors are recorded in Logs.'),
+        const Text(
+          'Settings changes apply to newly queued pages. Effective API '
+          'settings, timing, and errors are recorded in Logs.',
+        ),
         const SizedBox(height: 12),
-        SelectableText(settings.length > 12000
-            ? '${settings.substring(0, 12000)}\n… Settings preview truncated.'
-            : settings),
+        SelectableText(
+          settings.length > 12000
+              ? '${settings.substring(0, 12000)}\n… Settings preview truncated.'
+              : settings,
+        ),
         const SizedBox(height: 24),
-        Text('Provider usage metadata', style: Theme.of(context).textTheme.titleMedium),
+        Text(
+          'Provider usage metadata',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
         const SizedBox(height: 8),
-        SelectableText(usage.length > 6000 ? '${usage.substring(0, 6000)}\n… Truncated.' : usage),
+        SelectableText(
+          usage.length > 6000
+              ? '${usage.substring(0, 6000)}\n… Truncated.'
+              : usage,
+        ),
       ],
     );
   }

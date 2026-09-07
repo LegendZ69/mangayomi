@@ -98,12 +98,25 @@ void main() {
       expect(settings.ppocrDetectionModel, 'PP-OCRv6_tiny_det');
       expect(settings.ppocrRecognitionModel, 'PP-OCRv6_tiny_rec');
       expect(settings.yoloModel, 'yolo26m');
-      expect(settings.validateRuntimeSupport(), contains(contains('unavailable')));
+      expect(
+        settings.validateRuntimeSupport(),
+        contains(contains('unavailable')),
+      );
       for (final field in [
-        'ppocrDetectionModel', 'ppocrRecognitionModel', 'yoloModel',
+        'ppocrDetectionModel',
+        'ppocrRecognitionModel',
+        'yoloModel',
       ]) {
-        for (final value in ['', ' ', '../model', 'https://example.test/model',
-          r'C:\models\model', 'model\nsecret', null, 3]) {
+        for (final value in [
+          '',
+          ' ',
+          '../model',
+          'https://example.test/model',
+          r'C:\models\model',
+          'model\nsecret',
+          null,
+          3,
+        ]) {
           expect(
             () => TranslationSettings.fromJson({field: value}),
             throwsFormatException,
@@ -115,7 +128,10 @@ void main() {
 
     test('unknown enum values never reset execution or engine preferences', () {
       for (final field in [
-        'executionMode', 'detectionEngine', 'ocrEngine', 'inpaintEngine',
+        'executionMode',
+        'detectionEngine',
+        'ocrEngine',
+        'inpaintEngine',
         'vertexMode',
       ]) {
         for (final value in ['unrecognized', null, 1]) {
@@ -182,36 +198,39 @@ void main() {
       );
     });
 
-    test('copyWith retains untouched fields and explicitly clears defaults', () {
-      const initial = TranslationSettings(
-        projectId: 'project-example',
-        maxOutputTokens: 1000,
-        fontFamily: 'Custom Font',
-        fontSize: 20,
-        fontWeight: 700,
-        backgroundColor: 0xffffffff,
-        textColor: 0xff000000,
-      );
-      expect(initial.copyWith().toJson(), initial.toJson());
-      final reset = initial.copyWith(
-        maxOutputTokens: null,
-        fontFamily: null,
-        fontSize: null,
-        fontWeight: null,
-        backgroundColor: null,
-        textColor: null,
-        captureRawBodies: true,
-      );
-      expect(reset.projectId, initial.projectId);
-      expect(reset.maxOutputTokens, isNull);
-      expect(reset.fontFamily, isNull);
-      expect(reset.fontSize, isNull);
-      expect(reset.fontWeight, isNull);
-      expect(reset.backgroundColor, isNull);
-      expect(reset.textColor, isNull);
-      expect(reset.captureRawBodies, isTrue);
-      expect(initial.captureRawBodies, isFalse);
-    });
+    test(
+      'copyWith retains untouched fields and explicitly clears defaults',
+      () {
+        const initial = TranslationSettings(
+          projectId: 'project-example',
+          maxOutputTokens: 1000,
+          fontFamily: 'Custom Font',
+          fontSize: 20,
+          fontWeight: 700,
+          backgroundColor: 0xffffffff,
+          textColor: 0xff000000,
+        );
+        expect(initial.copyWith().toJson(), initial.toJson());
+        final reset = initial.copyWith(
+          maxOutputTokens: null,
+          fontFamily: null,
+          fontSize: null,
+          fontWeight: null,
+          backgroundColor: null,
+          textColor: null,
+          captureRawBodies: true,
+        );
+        expect(reset.projectId, initial.projectId);
+        expect(reset.maxOutputTokens, isNull);
+        expect(reset.fontFamily, isNull);
+        expect(reset.fontSize, isNull);
+        expect(reset.fontWeight, isNull);
+        expect(reset.backgroundColor, isNull);
+        expect(reset.textColor, isNull);
+        expect(reset.captureRawBodies, isTrue);
+        expect(initial.captureRawBodies, isFalse);
+      },
+    );
 
     test('JSON snapshots do not share nested generation configuration', () {
       final raw = <String, dynamic>{
@@ -230,33 +249,48 @@ void main() {
       );
     });
 
-    test('credentials in raw configuration are rejected before persistence', () {
-      for (final key in [
-        'Authorization', 'api_key', 'X-Goog-Api-Key', 'access_token',
-        'refreshToken', 'id_token', 'client-secret', 'PRIVATE_KEY',
-        'password', 'Cookie', 'Set-Cookie', 'service_account', 'credentials',
-      ]) {
-        final settings = TranslationSettings(rawGenerationConfig: {
-          'thinkingConfig': {
-            'nested': [
-              {key: 'never-persist-this-secret'},
-            ],
-          },
-        });
-        expect(settings.validate(), contains(contains('secure credential')));
-        expect(settings.toJson, throwsFormatException);
-        expect(
-          () => TranslationSettings.fromJson({
-            'rawGenerationConfig': settings.rawGenerationConfig,
-          }),
-          throwsFormatException,
-        );
-        expect(
-          settings.validate().join(' '),
-          isNot(contains('never-persist-this-secret')),
-        );
-      }
-    });
+    test(
+      'credentials in raw configuration are rejected before persistence',
+      () {
+        for (final key in [
+          'Authorization',
+          'api_key',
+          'X-Goog-Api-Key',
+          'access_token',
+          'refreshToken',
+          'id_token',
+          'client-secret',
+          'PRIVATE_KEY',
+          'password',
+          'Cookie',
+          'Set-Cookie',
+          'service_account',
+          'credentials',
+        ]) {
+          final settings = TranslationSettings(
+            rawGenerationConfig: {
+              'thinkingConfig': {
+                'nested': [
+                  {key: 'never-persist-this-secret'},
+                ],
+              },
+            },
+          );
+          expect(settings.validate(), contains(contains('secure credential')));
+          expect(settings.toJson, throwsFormatException);
+          expect(
+            () => TranslationSettings.fromJson({
+              'rawGenerationConfig': settings.rawGenerationConfig,
+            }),
+            throwsFormatException,
+          );
+          expect(
+            settings.validate().join(' '),
+            isNot(contains('never-persist-this-secret')),
+          );
+        }
+      },
+    );
 
     test('incomplete full mode setup is saveable, but not execution ready', () {
       final settings = TranslationSettings.fromJson({});
@@ -267,7 +301,9 @@ void main() {
         isEmpty,
       );
       expect(
-        settings.copyWith(vertexMode: VertexMode.express).validateForExecution(),
+        settings
+            .copyWith(vertexMode: VertexMode.express)
+            .validateForExecution(),
         isEmpty,
       );
     });
@@ -275,12 +311,14 @@ void main() {
     test('all unavailable selections fail runtime support explicitly', () {
       for (final engine in DetectionEngine.values) {
         final errors = const TranslationSettings()
-            .copyWith(detectionEngine: engine).validateRuntimeSupport();
+            .copyWith(detectionEngine: engine)
+            .validateRuntimeSupport();
         expect(errors, engine == DetectionEngine.ai ? isEmpty : isNotEmpty);
       }
       for (final engine in OcrEngine.values) {
         final errors = const TranslationSettings()
-            .copyWith(ocrEngine: engine).validateRuntimeSupport();
+            .copyWith(ocrEngine: engine)
+            .validateRuntimeSupport();
         expect(errors, engine == OcrEngine.ai ? isEmpty : isNotEmpty);
       }
       expect(
@@ -297,11 +335,14 @@ void main() {
 
     test('hybrid preferences use the requested concrete engine', () {
       for (final engine in [
-        TranslationEngine.ppocr, TranslationEngine.yolo26,
+        TranslationEngine.ppocr,
+        TranslationEngine.yolo26,
         TranslationEngine.lama,
       ]) {
         final decision = resolveExecution(
-          engine: engine, mode: ExecutionMode.hybrid, capabilities: both,
+          engine: engine,
+          mode: ExecutionMode.hybrid,
+          capabilities: both,
         );
         expect(
           decision.location,
@@ -314,29 +355,34 @@ void main() {
       }
     });
 
-    test('hybrid can fall back only to the same engine at another location', () {
-      for (final engine in [
-        TranslationEngine.ppocr, TranslationEngine.yolo26,
-        TranslationEngine.lama,
-      ]) {
-        final isPpocr = engine == TranslationEngine.ppocr;
-        final decision = resolveExecution(
-          engine: engine,
-          mode: ExecutionMode.hybrid,
-          capabilities: EngineCapabilities(local: !isPpocr, cloud: isPpocr),
-        );
-        expect(decision.isFallback, isTrue);
-        expect(decision.reason, contains('same engine'));
-        expect(
-          decision.location,
-          isPpocr ? ExecutionLocation.cloud : ExecutionLocation.local,
-        );
-      }
-    });
+    test(
+      'hybrid can fall back only to the same engine at another location',
+      () {
+        for (final engine in [
+          TranslationEngine.ppocr,
+          TranslationEngine.yolo26,
+          TranslationEngine.lama,
+        ]) {
+          final isPpocr = engine == TranslationEngine.ppocr;
+          final decision = resolveExecution(
+            engine: engine,
+            mode: ExecutionMode.hybrid,
+            capabilities: EngineCapabilities(local: !isPpocr, cloud: isPpocr),
+          );
+          expect(decision.isFallback, isTrue);
+          expect(decision.reason, contains('same engine'));
+          expect(
+            decision.location,
+            isPpocr ? ExecutionLocation.cloud : ExecutionLocation.local,
+          );
+        }
+      },
+    );
 
     test('local only never falls back to a cloud vision adapter', () {
       for (final engine in [
-        TranslationEngine.ppocr, TranslationEngine.yolo26,
+        TranslationEngine.ppocr,
+        TranslationEngine.yolo26,
         TranslationEngine.lama,
       ]) {
         final unavailable = resolveExecution(
@@ -350,7 +396,9 @@ void main() {
         expect(unavailable.reason, contains('No other engine was substituted'));
         expect(
           resolveExecution(
-            engine: engine, mode: ExecutionMode.localOnly, capabilities: both,
+            engine: engine,
+            mode: ExecutionMode.localOnly,
+            capabilities: both,
           ).location,
           ExecutionLocation.local,
         );
@@ -359,7 +407,8 @@ void main() {
 
     test('cloud only never falls back to a local vision adapter', () {
       for (final engine in [
-        TranslationEngine.ppocr, TranslationEngine.yolo26,
+        TranslationEngine.ppocr,
+        TranslationEngine.yolo26,
         TranslationEngine.lama,
       ]) {
         final unavailable = resolveExecution(
@@ -372,7 +421,9 @@ void main() {
         expect(unavailable.isFallback, isFalse);
         expect(
           resolveExecution(
-            engine: engine, mode: ExecutionMode.cloudOnly, capabilities: both,
+            engine: engine,
+            mode: ExecutionMode.cloudOnly,
+            capabilities: both,
           ).location,
           ExecutionLocation.cloud,
         );
@@ -383,13 +434,17 @@ void main() {
       for (final mode in ExecutionMode.values) {
         expect(
           resolveExecution(
-            engine: TranslationEngine.ai, mode: mode, capabilities: both,
+            engine: TranslationEngine.ai,
+            mode: mode,
+            capabilities: both,
           ).location,
           ExecutionLocation.cloud,
         );
         expect(
           resolveExecution(
-            engine: TranslationEngine.overlay, mode: mode, capabilities: both,
+            engine: TranslationEngine.overlay,
+            mode: mode,
+            capabilities: both,
           ).location,
           ExecutionLocation.local,
         );
@@ -416,7 +471,9 @@ void main() {
       for (final mode in ExecutionMode.values) {
         for (final engine in TranslationEngine.values) {
           final decision = resolveExecution(
-            engine: engine, mode: mode, capabilities: neither,
+            engine: engine,
+            mode: mode,
+            capabilities: neither,
           );
           expect(decision.isAvailable, isFalse);
           expect(decision.location, isNull);

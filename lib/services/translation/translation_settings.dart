@@ -146,8 +146,7 @@ class TranslationSettings {
         ? this.textColor
         : textColor as int?,
     priorityPaygo: priorityPaygo ?? this.priorityPaygo,
-    provisionedThroughput:
-        provisionedThroughput ?? this.provisionedThroughput,
+    provisionedThroughput: provisionedThroughput ?? this.provisionedThroughput,
   );
 
   Map<String, dynamic> toJson() => {
@@ -188,36 +187,58 @@ class TranslationSettings {
     const defaults = TranslationSettings();
     final settings = TranslationSettings(
       executionMode: _readEnum(
-        json, 'executionMode', ExecutionMode.values, defaults.executionMode,
+        json,
+        'executionMode',
+        ExecutionMode.values,
+        defaults.executionMode,
       ),
       detectionEngine: _readEnum(
-        json, 'detectionEngine', DetectionEngine.values,
+        json,
+        'detectionEngine',
+        DetectionEngine.values,
         defaults.detectionEngine,
       ),
       ocrEngine: _readEnum(
-        json, 'ocrEngine', OcrEngine.values, defaults.ocrEngine,
+        json,
+        'ocrEngine',
+        OcrEngine.values,
+        defaults.ocrEngine,
       ),
       inpaintEngine: _readEnum(
-        json, 'inpaintEngine', InpaintEngine.values, defaults.inpaintEngine,
+        json,
+        'inpaintEngine',
+        InpaintEngine.values,
+        defaults.inpaintEngine,
       ),
       ppocrDetectionModel: _read<String>(
-        json, 'ppocrDetectionModel', defaults.ppocrDetectionModel,
+        json,
+        'ppocrDetectionModel',
+        defaults.ppocrDetectionModel,
       ),
       ppocrRecognitionModel: _read<String>(
-        json, 'ppocrRecognitionModel', defaults.ppocrRecognitionModel,
+        json,
+        'ppocrRecognitionModel',
+        defaults.ppocrRecognitionModel,
       ),
       yoloModel: _read<String>(json, 'yoloModel', defaults.yoloModel),
       vertexMode: _readEnum(
-        json, 'vertexMode', VertexMode.values, defaults.vertexMode,
+        json,
+        'vertexMode',
+        VertexMode.values,
+        defaults.vertexMode,
       ),
       projectId: _read<String>(json, 'projectId', defaults.projectId),
       location: _read<String>(json, 'location', defaults.location),
       model: _read<String>(json, 'model', defaults.model),
       targetLanguage: _read<String>(
-        json, 'targetLanguage', defaults.targetLanguage,
+        json,
+        'targetLanguage',
+        defaults.targetLanguage,
       ),
       thinkingLevel: _read<String>(
-        json, 'thinkingLevel', defaults.thinkingLevel,
+        json,
+        'thinkingLevel',
+        defaults.thinkingLevel,
       ),
       maxOutputTokens: _readNullable<int>(json, 'maxOutputTokens'),
       rawGenerationConfig: Map.unmodifiable(
@@ -229,10 +250,14 @@ class TranslationSettings {
         ),
       ),
       captureRawBodies: _read<bool>(
-        json, 'captureRawBodies', defaults.captureRawBodies,
+        json,
+        'captureRawBodies',
+        defaults.captureRawBodies,
       ),
       timeoutSeconds: _read<int>(
-        json, 'timeoutSeconds', defaults.timeoutSeconds,
+        json,
+        'timeoutSeconds',
+        defaults.timeoutSeconds,
       ),
       maxRetries: _read<int>(json, 'maxRetries', defaults.maxRetries),
       maxLogEntries: _read<int>(json, 'maxLogEntries', defaults.maxLogEntries),
@@ -241,11 +266,11 @@ class TranslationSettings {
       fontWeight: _readNullable<int>(json, 'fontWeight'),
       backgroundColor: _readNullable<int>(json, 'backgroundColor'),
       textColor: _readNullable<int>(json, 'textColor'),
-      priorityPaygo: _read<bool>(
-        json, 'priorityPaygo', defaults.priorityPaygo,
-      ),
+      priorityPaygo: _read<bool>(json, 'priorityPaygo', defaults.priorityPaygo),
       provisionedThroughput: _read<bool>(
-        json, 'provisionedThroughput', defaults.provisionedThroughput,
+        json,
+        'provisionedThroughput',
+        defaults.provisionedThroughput,
       ),
     );
     final errors = settings.validate();
@@ -269,8 +294,10 @@ class TranslationSettings {
       'YOLO model': yoloModel,
     }.entries) {
       if (!artifactIdentifier.hasMatch(entry.value)) {
-        errors.add('${entry.key} must be a non-empty artifact identifier, '
-            'not a path, URL, or credential.');
+        errors.add(
+          '${entry.key} must be a non-empty artifact identifier, '
+          'not a path, URL, or credential.',
+        );
       }
     }
     if (!const ['MINIMAL', 'LOW', 'MEDIUM', 'HIGH'].contains(thinkingLevel)) {
@@ -386,9 +413,10 @@ ExecutionDecision resolveExecution({
   final preferred = switch (mode) {
     ExecutionMode.localOnly => ExecutionLocation.local,
     ExecutionMode.cloudOnly => ExecutionLocation.cloud,
-    ExecutionMode.hybrid => engine == TranslationEngine.ppocr
-        ? ExecutionLocation.local
-        : ExecutionLocation.cloud,
+    ExecutionMode.hybrid =>
+      engine == TranslationEngine.ppocr
+          ? ExecutionLocation.local
+          : ExecutionLocation.cloud,
   };
   bool available(ExecutionLocation location) =>
       location == ExecutionLocation.local
@@ -409,14 +437,16 @@ ExecutionDecision resolveExecution({
       return ExecutionDecision(
         location: fallback,
         isFallback: true,
-        reason: '${engine.name} ${preferred.name} is unavailable. Hybrid '
+        reason:
+            '${engine.name} ${preferred.name} is unavailable. Hybrid '
             'allows the same engine to run ${fallback.name}.',
       );
     }
   }
   return ExecutionDecision(
     location: null,
-    reason: '${engine.name} is unavailable under ${mode.name}: no permitted '
+    reason:
+        '${engine.name} is unavailable under ${mode.name}: no permitted '
         'adapter is available. No other engine was substituted.',
   );
 }

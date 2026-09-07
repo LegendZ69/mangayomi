@@ -119,7 +119,9 @@ class _ImageActionsSheet extends StatelessWidget {
               ListTile(
                 leading: const Icon(Icons.translate_rounded),
                 title: const Text('Queue page for translation'),
-                subtitle: const Text('Review settings and start from the queue'),
+                subtitle: const Text(
+                  'Review settings and start from the queue',
+                ),
                 onTap: () => _queueTranslation(context),
               ),
             ],
@@ -150,7 +152,9 @@ class _ImageActionsSheet extends StatelessWidget {
       if (!context.mounted) return;
       if (job == null) {
         messenger.showSnackBar(
-          SnackBar(content: Text(controller.error ?? 'Could not queue this page.')),
+          SnackBar(
+            content: Text(controller.error ?? 'Could not queue this page.'),
+          ),
         );
         return;
       }
@@ -159,7 +163,9 @@ class _ImageActionsSheet extends StatelessWidget {
     } catch (_) {
       if (!context.mounted) return;
       messenger.showSnackBar(
-        const SnackBar(content: Text('Could not save this page to the translation queue.')),
+        const SnackBar(
+          content: Text('Could not save this page to the translation queue.'),
+        ),
       );
     }
   }

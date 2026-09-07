@@ -230,6 +230,11 @@ jobs:
       - name: Build iOS simulator app
         id: simulator_build
         timeout-minutes: 30
+        env:
+          # Flutter forwards FLUTTER_XCODE_* as xcodebuild settings. Match the
+          # existing arm64-only media-kit simulator plugin on this runner.
+          FLUTTER_XCODE_ARCHS: arm64
+          FLUTTER_XCODE_ONLY_ACTIVE_ARCH: 'YES'
         run: flutter build ios --simulator --debug --no-codesign --no-pub 2>&1 | tee artifacts/simulator/build.log
 
       - name: Launch on a fresh iPhone 13 simulator

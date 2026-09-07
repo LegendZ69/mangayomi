@@ -591,7 +591,7 @@ class TranslationController extends ChangeNotifier {
   String exportLogs() => const JsonEncoder.withIndent('  ').convert(
     _redact({
       'version': 1,
-        'exportedAt': _clock().toUtc().toIso8601String(),
+      'exportedAt': _clock().toUtc().toIso8601String(),
       'notice': 'Credentials and inline image data are redacted. Raw bodies may contain page text; review before sharing.',
       'events': _logs.map((event) => event.toJson()).toList(),
       'jobs': _jobs
