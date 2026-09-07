@@ -4,6 +4,10 @@ This feature adds a translation workbench to Mangayomi. It is under development;
 the engine support matrix in [engine-support.md](engine-support.md) distinguishes
 published models from integrated and device-validated adapters.
 
+For iPhone installation, see [the installation guide](installation.md):
+AltStore/SideStore, a registered-device IPA, and TestFlight each have a dedicated
+packaging route. The guide identifies which routes require Apple signing setup.
+
 ## Execution modes
 
 **Vision engine execution** controls PP-OCR, YOLO26 and LaMa placement:
