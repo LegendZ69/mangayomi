@@ -1,0 +1,170 @@
+name: Translator validation
+
+on:
+  push:
+    branches: [codex/iphone-translator-workbench]
+    paths:
+      - '.github/workflows/translation-validation.yml'
+      - 'lib/**'
+      - 'test/**'
+      - 'ios/**'
+      - 'rust/**'
+      - 'rust_builder/**'
+      - 'assets/**'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+      - 'analysis_options.yaml'
+      - 'l10n.yaml'
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/translation-validation.yml'
+      - 'lib/**'
+      - 'test/**'
+      - 'ios/**'
+      - 'rust/**'
+      - 'rust_builder/**'
+      - 'assets/**'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+      - 'analysis_options.yaml'
+      - 'l10n.yaml'
+  # GitHub exposes manual dispatch after this file reaches the default branch.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: translator-validation-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  translator-ios:
+    name: Translator tests and unsigned iOS build
+    runs-on: macos-15
+    timeout-minutes: 60
+    env:
+      CI: 'true'
+      COCOAPODS_DISABLE_STATS: 'true'
+      FLUTTER_SUPPRESS_ANALYTICS: 'true'
+      DART_SUPPRESS_ANALYTICS: 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Record source and runner
+        run: |
+          mkdir -p artifacts/logs
+          {
+            git rev-parse HEAD
+            sw_vers
+            xcodebuild -version
+          } 2>&1 | tee artifacts/logs/source-and-runner.log
+
+      - name: Set up Flutter
+        id: flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          channel: stable
+          # Stable SDK: https://docs.flutter.dev/install/archive
+          # pubspec.lock requires Dart >=3.13.1 and Flutter >=3.44.0.
+          flutter-version: '3.47.2'
+          cache: true
+
+      - name: Record Flutter version
+        run: flutter --version 2>&1 | tee artifacts/logs/flutter-version.log
+
+      - name: Install locked dependencies
+        id: dependencies
+        timeout-minutes: 15
+        run: flutter pub get --enforce-lockfile 2>&1 | tee artifacts/logs/pub-get.log
+
+      # Generated Dart/Rust bridge and localization sources are committed.
+      # Do not regenerate them or install an unrelated code generator in CI.
+      - name: Analyze
+        id: analyze
+        timeout-minutes: 10
+        run: flutter analyze --no-pub --no-fatal-infos --no-fatal-warnings 2>&1 | tee artifacts/logs/analyze.log
+
+      - name: Run translator unit and widget tests
+        id: tests
+        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
+        timeout-minutes: 15
+        run: |
+          flutter test --no-pub --reporter expanded \
+            test/services/translation_settings_test.dart \
+            test/services/vertex_translation_client_test.dart \
+            test/services/translation_queue_test.dart \
+            test/modules/translation_screen_test.dart \
+            2>&1 | tee artifacts/logs/translator-tests.log
+
+      - name: Set up Rust for iPhone arm64
+        id: rust
+        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
+        uses: dtolnay/rust-toolchain@d1031067263f94b142dd6c0ce24c5eb9d02d52a0 # master
+        with:
+          toolchain: stable
+          targets: aarch64-apple-ios
+
+      - name: Record Rust version
+        if: ${{ !cancelled() && steps.rust.outcome == 'success' }}
+        run: rustc --version 2>&1 | tee artifacts/logs/rust-version.log
+
+      # Compile even after an analysis/test failure to collect independent
+      # native-build evidence. Earlier failed steps still fail the overall job.
+      - name: Build unsigned iOS debug app
+        id: build
+        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' && steps.rust.outcome == 'success' }}
+        timeout-minutes: 35
+        run: flutter build ios --debug --no-codesign --no-pub 2>&1 | tee artifacts/logs/ios-build.log
+
+      - name: Package unsigned app
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: |
+          test -d build/ios/iphoneos/Runner.app
+          # Zip first to preserve app-bundle permissions and resource metadata.
+          ditto -c -k --sequesterRsrc --keepParent \
+            build/ios/iphoneos/Runner.app artifacts/Mangayomi-ios-unsigned-debug.app.zip
+
+      - name: Upload unsigned app
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: Mangayomi-ios-unsigned-debug-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/Mangayomi-ios-unsigned-debug.app.zip
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+
+      - name: Record validation outcomes
+        if: ${{ always() }}
+        env:
+          ANALYZE_OUTCOME: ${{ steps.analyze.outcome }}
+          TEST_OUTCOME: ${{ steps.tests.outcome }}
+          BUILD_OUTCOME: ${{ steps.build.outcome }}
+        run: |
+          mkdir -p artifacts/logs
+          {
+            printf 'Analysis: %s\n' "$ANALYZE_OUTCOME"
+            printf 'Translator tests: %s\n' "$TEST_OUTCOME"
+            printf 'Unsigned iOS compilation: %s\n' "$BUILD_OUTCOME"
+            printf '\nThis is an unsigned debug app bundle, not an installable IPA.\n'
+            printf 'No signing credentials, provider credentials, paid translation calls,\n'
+            printf 'device tests, merge, tag, or release publication are part of this job.\n'
+          } | tee artifacts/logs/outcomes.log >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload validation logs
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: translator-validation-logs-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/logs/
+          if-no-files-found: warn
+          retention-days: 7
