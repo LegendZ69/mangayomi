@@ -1,0 +1,129 @@
+name: Recover verified iOS sideload package
+
+# One-off packaging recovery branch; never installs SDKs, signs, or publishes a release.
+on:
+  push:
+    branches: [codex/ios-sideload-recovery]
+
+permissions:
+  contents: read
+  actions: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  recover:
+    runs-on: macos-26
+    timeout-minutes: 15
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+      COMPILED_SOURCE: 48535b858376dc8e731d186eb9c80e2bebc9a385
+      RETAINED_ARTIFACT: '10026835867'
+      RETAINED_SHA256: 89b87202a684e387699dfe80af02f1f3704df81a512a68bc01c3b3789b5f3ae9
+    steps:
+      - name: Checkout corrected packaging tools
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Checkout the exact compiled source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ env.COMPILED_SOURCE }}
+          path: compiled-source
+          persist-credentials: false
+
+      - name: Verify unchanged application inputs and packaging guards
+        run: |
+          mkdir -p artifacts/logs artifacts/distribution
+          test "$(xcodebuild -version | head -n 1)" = 'Xcode 26.6'
+          python3 - <<'PY'
+          import os, subprocess
+          def inputs(directory):
+              tree = subprocess.check_output(['git', '-C', directory, 'ls-tree', '-r', '--full-tree', 'HEAD'], text=True)
+              return {line for line in tree.splitlines()
+                      if not line.split('\t', 1)[1].startswith(('.github/', 'docs/', 'test/ci/'))}
+          assert inputs('.') == inputs('compiled-source'), 'Application inputs changed since the retained build.'
+          source = subprocess.check_output(['git', '-C', 'compiled-source', 'rev-parse', 'HEAD'], text=True).strip()
+          assert source == os.environ['COMPILED_SOURCE']
+          print('Compiled source and all application inputs verified.')
+          PY
+          python3 -m unittest discover -s test/ci -p 'test_*.py' -v 2>&1 | tee artifacts/logs/guards.log
+
+      - name: Download retained unsigned release bundle
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/LegendZ69/mangayomi/actions/artifacts/$RETAINED_ARTIFACT/zip" > "$RUNNER_TEMP/retained-release.zip"
+          python3 - <<'PY'
+          import hashlib, os, zipfile
+          from pathlib import Path
+          archive = Path(os.environ['RUNNER_TEMP']) / 'retained-release.zip'
+          with archive.open('rb') as stream:
+              actual = hashlib.file_digest(stream, 'sha256').hexdigest()
+          assert actual == os.environ['RETAINED_SHA256'], 'Retained artifact checksum mismatch.'
+          with zipfile.ZipFile(archive) as package:
+              assert package.namelist() == ['unsigned-release.app.zip'], 'Unexpected diagnostic artifact layout.'
+              with package.open('unsigned-release.app.zip') as source, (archive.parent / 'release.app.zip').open('wb') as target:
+                  import shutil
+                  shutil.copyfileobj(source, target)
+          print('Retained artifact checksum and outer archive layout verified.')
+          PY
+          ditto -x -k "$RUNNER_TEMP/release.app.zip" "$RUNNER_TEMP/retained-app"
+
+      - name: Record actual Dart snapshot exports
+        run: |
+          python3 - <<'PY' | tee artifacts/logs/aot-symbols.log
+          import os, subprocess
+          from pathlib import Path
+          app = Path(os.environ['RUNNER_TEMP']) / 'retained-app/Runner.app'
+          output = subprocess.check_output(['xcrun', 'nm', '-gU', str(app / 'Frameworks/App.framework/App')], text=True)
+          print('\n'.join(line for line in output.splitlines() if 'kDart' in line))
+          for name in ['Runner', 'Frameworks/App.framework/App', 'Frameworks/Flutter.framework/Flutter']:
+              print(name, oct((app / name).stat().st_mode & 0o777))
+          PY
+
+      - name: Package and validate the compiled release
+        run: |
+          cd compiled-source
+          python3 "$GITHUB_WORKSPACE/.github/scripts/package_ios_sideload.py" \
+            --source-commit "$COMPILED_SOURCE" \
+            --app "$RUNNER_TEMP/retained-app/Runner.app" \
+            --output "$GITHUB_WORKSPACE/artifacts/distribution/Mangayomi-translator-sideload-unsigned.ipa" \
+            2>&1 | tee "$GITHUB_WORKSPACE/artifacts/logs/package.log"
+
+      - name: Record packaging provenance
+        run: |
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          Path('artifacts/distribution/recovery.json').write_text(json.dumps({
+              'compiled_source_commit': os.environ['COMPILED_SOURCE'],
+              'packaging_commit': os.environ['GITHUB_SHA'],
+              'application_inputs_unchanged': True,
+              'build_run': 'https://github.com/LegendZ69/mangayomi/actions/runs/34142714586',
+              'retained_artifact_id': os.environ['RETAINED_ARTIFACT'],
+              'retained_artifact_sha256': os.environ['RETAINED_SHA256'],
+              'note': 'Existing release app repackaged with corrected SDK-aware validation; no rebuild or signing.'
+          }, indent=2) + '\n')
+          PY
+
+      - name: Upload verified sideload IPA
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: Mangayomi-ios-sideload-unsigned-recovered-${{ github.run_id }}
+          path: artifacts/distribution/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+
+      - name: Upload recovery evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ios-sideload-recovery-logs-${{ github.run_id }}
+          path: artifacts/logs/
+          if-no-files-found: warn
+          retention-days: 14
