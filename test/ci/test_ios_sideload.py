@@ -102,6 +102,24 @@ class SideloadArtifactTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "AOT snapshot"):
                 PACKAGER.inspect_bundle(self.app)
 
+    def test_frameworks_keep_0644_mode_while_main_requires_execute_permission(self):
+        frameworks = ("Frameworks/App.framework/App", "Frameworks/Flutter.framework/Flutter")
+        for relative in frameworks:
+            (self.app / relative).chmod(0o644)
+        exported = "\n".join(f"0000000000001000 T {name}" for name in PACKAGER.AOT_SYMBOLS)
+        with patch.object(PACKAGER, "run", return_value=exported):
+            self.assertEqual(PACKAGER.inspect_bundle(self.app)["executable"], "Runner")
+        inventory = PACKAGER.bundle_inventory(self.app)
+        self.write_archive()
+        self.assertEqual(PACKAGER.verify_archive(self.archive, inventory), len(inventory))
+        with zipfile.ZipFile(self.archive) as archive:
+            for relative in frameworks:
+                mode = archive.getinfo(f"Payload/Runner.app/{relative}").external_attr >> 16
+                self.assertEqual(stat.S_IMODE(mode), 0o644)
+        (self.app / "Runner").chmod(0o644)
+        with self.assertRaisesRegex(ValueError, "main app executable lacks execute permissions"):
+            PACKAGER.inspect_bundle(self.app)
+
     def test_bundle_rejects_escaping_links_profiles_and_jit_assets(self):
         (self.root / "outside").write_bytes(b"outside the app")
         escape = self.app / "Escape"

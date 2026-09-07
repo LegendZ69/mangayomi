@@ -152,8 +152,13 @@ def inspect_bundle(app):
     details = {}
     for relative, filetype in binaries.items():
         binary = app / relative
-        require(binary.is_file() and binary.stat().st_mode & 0o111,
-                "A required app or Flutter framework executable is missing.")
+        require(binary.is_file(), f"A required app binary is missing: {relative}.")
+        # Flutter intentionally copies framework files with mode 0644:
+        # https://github.com/flutter/flutter/blob/3.47.2/packages/flutter_tools/lib/src/build_system/targets/darwin.dart
+        # Only the process entry point requires executable filesystem permissions.
+        if filetype == 2:
+            require(binary.stat().st_mode & 0o111,
+                    f"The main app executable lacks execute permissions: {relative}.")
         details[relative] = mach_o_device(binary, filetype)
         require(tuple(details[relative]["minimum_ios"]) <= minimum,
                 "Info.plist minimum iOS is lower than an executable's deployment target.")
