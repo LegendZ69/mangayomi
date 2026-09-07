@@ -199,7 +199,8 @@ def build():
     working = private_dir()
     require(not working.exists(), "Signing directory already exists; clean up the previous attempt.")
     working.mkdir(mode=0o700)
-    os.umask(0o077)
+    # Protect private files individually; Flutter/Xcode must retain normal
+    # bundle permissions rather than inherit a restrictive process-wide umask.
     try:
         profile_path = working / "distribution.mobileprovision"
         profile_secret = "IOS_ADHOC_PROFILE_BASE64" if values["route"] == "adhoc" else "IOS_APP_STORE_PROFILE_BASE64"
